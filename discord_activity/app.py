@@ -1,6 +1,7 @@
 from microcosm.api import create_object_graph
 
 import discord_activity.discord.client  # noqa: F401
+import discord_activity.extract.activity_extractor  # noqa: F401
 
 
 def create_app(testing=False):
@@ -8,6 +9,7 @@ def create_app(testing=False):
 
     graph.use(
         "discord_client",
+        "activity_extractor",
     )
 
     graph.lock()
