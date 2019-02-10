@@ -1,0 +1,84 @@
+from microcosm.api import binding, defaults
+from requests import get
+
+from discord_activity.discord.channel import DiscordChannel
+from discord_activity.discord.constants import DISCORD_EPOCH_START
+from discord_activity.discord.message import DiscordMessage
+
+
+@binding("discord_client")
+@defaults(
+    server_id="replace-me",
+    bot_token="replace-me",
+    base_url="https://discordapp.com/api"
+)
+class DiscordClient:
+    def __init__(self, graph):
+        self.server_id = graph.config.discord_client.server_id
+        self.bot_token = graph.config.discord_client.bot_token
+        self.base_url = graph.config.discord_client.base_url
+
+    @property
+    def _auth_header(self):
+        return dict(Authorization=f"Bot {self.bot_token}")
+
+    def _timestamp_to_snowflake(self, timestamp):
+        """
+        See https://discordapp.com/developers/docs/reference#snowflakes
+
+        :timestamp: millisecond UNIX timestamp
+
+        """
+        return (timestamp - DISCORD_EPOCH_START) << 22
+
+    def iter_channels(self):
+        # No iteration to do here, the API endpoint returns all channels
+        yield from self._get_server_channels()
+
+    def iter_channel_messages(self, channel_id, before_timestamp=None, after_timestamp=None):
+        before = self._timestamp_to_snowflake(before_timestamp)
+        after = self._timestamp_to_snowflake(after_timestamp)
+
+        latest_id = 0
+        # The API only accepts one of `before` or `after` - we send `after`
+        # and do the `before` filtering ourselves
+        while latest_id < before:
+            messages = self._get_channel_messages(
+                channel_id=channel_id,
+                after=after,
+                # We use the largest possible limit to iterate
+                limit=100,
+            )
+            if len(messages) == 0:
+                return
+            # messages are returned in descending timestamp order
+            latest_id = int(messages[0].id)
+
+            yield from [
+                message
+                for message in reversed(messages)
+                if int(message.id) < before
+            ]
+
+    def _get_server_channels(self):
+        channels = get(
+            f"{self.base_url}/guilds/{self.server_id}/channels",
+            headers=self._auth_header,
+        )
+        return [DiscordChannel.from_api(channel) for channel in channels]
+
+    def _get_channel_messages(self,
+                              channel_id,
+                              after=None,
+                              limit=None,
+                              ):
+        params = dict()
+        if after is not None:
+            params["after"] = after
+        if limit is not None:
+            params["limit"] = limit
+        messages = get(
+            f"{self.base_url}/channels/{channel_id}/messages",
+            params=params,
+        )
+        return [DiscordMessage.from_api(message) for message in messages]
