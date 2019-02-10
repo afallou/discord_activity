@@ -18,12 +18,13 @@ setup(
     install_requires=[
         "click>=7.0",
         "microcosm>=2.4.1",
+        "microcosm-logging>=1.3.0",
         "requests>=2.21.0",
     ],
     setup_requires=[],
     entry_points={
         "console_scripts": [
-            "createall = sphinx.main:createall",
+            "extract = discord_activity.extract.main:main",
         ],
     },
     tests_require=[

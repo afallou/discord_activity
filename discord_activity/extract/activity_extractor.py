@@ -14,8 +14,9 @@ class DiscordActivityExtractor:
         self.message_log = []
 
     def __call__(self, destination, before, after):
-        for channel in self.discord_client.iter_channels():
-            self._extract_channel_messages(channel.id, before, after)
+        # for channel in self.discord_client.iter_channels():
+        #     self._extract_channel_messages(channel.id, before, after)
+        self._extract_channel_messages("488411785930735617", before, after)
 
         self._write_log_to_csv(destination)
 

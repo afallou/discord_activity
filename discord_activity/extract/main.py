@@ -1,8 +1,22 @@
+from datetime import datetime as dt
 
-def run_extract(graph, discord_server_id, destination, from_date, until_date):
-    # graph.discord_activity_extractor(discord_server_id, destination, from, until)
-    pass
+from click import argument, command, option
+
+from discord_activity.app import create_app
 
 
-def main(destination, from_date, until_date):
-    run_extract(destination, from_date, until_date)
+def run_extract(graph, destination, before, after):
+    if before is None:
+        before = now_utc_timestamp()
+    graph.activity_extractor(destination, int(before), int(after))
+
+def now_utc_timestamp():
+    return 1000 * int(dt.timestamp(dt.utcnow()))
+
+@command()
+@option("--before", "-b")
+@option("--after", "-a", required=True)
+@argument("destination")
+def main(before, after, destination):
+    graph = create_app()
+    run_extract(graph, destination, before, after)

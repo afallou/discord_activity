@@ -1,9 +1,15 @@
 from hamcrest import assert_that, equal_to, has_length
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from discord_activity.app import create_app
 from discord_activity.discord.client import DISCORD_EPOCH_START
 
+def mock_response(payload_json):
+    return Mock(
+        json=Mock(
+            return_value=payload_json,
+        ),
+    )
 
 class TestDiscordClient:
     def setup(self):
@@ -14,17 +20,17 @@ class TestDiscordClient:
         before_timestamp = (182000000000000000 >> 22) + DISCORD_EPOCH_START
         with patch("discord_activity.discord.client.get") as mock_get:
             mock_get.side_effect = [
-                [dict(
+                mock_response([dict(
                     id="181000000000000000",
                     author=dict(id=1),
                     timestamp="2018-09-09T19:45:35.602000+00:00",
-                )],
+                )]),
                 # This one should get filtered out by "before" filter
-                [dict(
+                mock_response([dict(
                     id="185000000000000000",
                     author=dict(id=1),
                     timestamp="2018-09-09T20:45:35.602000+00:00",
-                )],
+                )]),
             ]
 
             iterator = self.client.iter_channel_messages(
@@ -40,19 +46,19 @@ class TestDiscordClient:
         before_timestamp = (190000000000000000 >> 22) + DISCORD_EPOCH_START
         with patch("discord_activity.discord.client.get") as mock_get:
             mock_get.side_effect = [
-                [dict(
+                mock_response([dict(
                     id="181000000000000000",
                     author=dict(id=1),
                     timestamp="2018-09-09T19:45:35.602000+00:00",
-                )],
-                [dict(
+                )]),
+                mock_response([dict(
                     id="185000000000000000",
                     author=dict(id=1),
                     timestamp="2018-09-09T20:45:35.602000+00:00",
-                )],
+                )]),
                 # `before` didn't stop iteration, so we get to the point where the server
                 # returns an empty list of messages
-                [],
+                mock_response([]),
             ]
 
             iterator = self.client.iter_channel_messages(
@@ -65,9 +71,9 @@ class TestDiscordClient:
 
     def test_iter_channels(self):
         with patch("discord_activity.discord.client.get") as mock_get:
-            mock_get.return_value = [
+            mock_get.return_value = mock_response([
                 dict(id="181000000000000000"),
                 dict(id="185000000000000000"),
-            ]
+            ])
             channels = [item for item in self.client.iter_channels()]
             assert_that(channels, has_length(2))

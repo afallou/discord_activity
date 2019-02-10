@@ -1,4 +1,5 @@
 from microcosm.api import binding, defaults
+from microcosm_logging.decorators import logger
 from requests import get
 
 from discord_activity.discord.channel import DiscordChannel
@@ -12,6 +13,7 @@ from discord_activity.discord.message import DiscordMessage
     bot_token="replace-me",
     base_url="https://discordapp.com/api"
 )
+@logger
 class DiscordClient:
     def __init__(self, graph):
         self.server_id = graph.config.discord_client.server_id
@@ -39,10 +41,9 @@ class DiscordClient:
         before = self._timestamp_to_snowflake(before_timestamp)
         after = self._timestamp_to_snowflake(after_timestamp)
 
-        latest_id = 0
         # The API only accepts one of `before` or `after` - we send `after`
         # and do the `before` filtering ourselves
-        while latest_id < before:
+        while after < before:
             messages = self._get_channel_messages(
                 channel_id=channel_id,
                 after=after,
@@ -52,8 +53,16 @@ class DiscordClient:
             if len(messages) == 0:
                 return
             # messages are returned in descending timestamp order
-            latest_id = int(messages[0].id)
+            # i.e. latest message first
+            after = int(messages[0].id)
 
+            self.logger.info(
+                "Extracted {count} messages starting at snowflake {after}",
+                extra=dict(
+                    count=len(messages),
+                    after=after,
+                ),
+            )
             yield from [
                 message
                 for message in reversed(messages)
@@ -65,7 +74,7 @@ class DiscordClient:
             f"{self.base_url}/guilds/{self.server_id}/channels",
             headers=self._auth_header,
         )
-        return [DiscordChannel.from_api(channel) for channel in channels]
+        return [DiscordChannel.from_api(channel) for channel in channels.json()]
 
     def _get_channel_messages(self,
                               channel_id,
@@ -79,6 +88,7 @@ class DiscordClient:
             params["limit"] = limit
         messages = get(
             f"{self.base_url}/channels/{channel_id}/messages",
+            headers=self._auth_header,
             params=params,
         )
-        return [DiscordMessage.from_api(message) for message in messages]
+        return [DiscordMessage.from_api(message) for message in messages.json()]
