@@ -1,6 +1,7 @@
 from microcosm.api import binding, defaults
 from microcosm_logging.decorators import logger
 from requests import get
+from requests.exceptions import HTTPError
 
 from discord_activity.discord.channel import DiscordChannel
 from discord_activity.discord.constants import DISCORD_EPOCH_START
@@ -70,11 +71,12 @@ class DiscordClient:
             ]
 
     def _get_server_channels(self):
-        channels = get(
+        response = get(
             f"{self.base_url}/guilds/{self.server_id}/channels",
             headers=self._auth_header,
         )
-        return [DiscordChannel.from_api(channel) for channel in channels.json()]
+        response.raise_for_status()
+        return [DiscordChannel.from_api(channel) for channel in response.json()]
 
     def _get_channel_messages(self,
                               channel_id,
@@ -86,9 +88,18 @@ class DiscordClient:
             params["after"] = after
         if limit is not None:
             params["limit"] = limit
-        messages = get(
-            f"{self.base_url}/channels/{channel_id}/messages",
+        uri = f"{self.base_url}/channels/{channel_id}/messages"
+        response = get(
+            uri,
             headers=self._auth_header,
             params=params,
         )
-        return [DiscordMessage.from_api(message) for message in messages.json()]
+        try:
+            response.raise_for_status()
+        except HTTPError as err:
+            if response.status_code == 403 and response.json()["code"] == 50001:
+                self.logger.warning(f"Missing access for URI {uri}")
+                return []
+            else:
+                raise
+        return [DiscordMessage.from_api(message) for message in response.json()]

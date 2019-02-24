@@ -19,12 +19,14 @@ setup(
         "click>=7.0",
         "microcosm>=2.4.1",
         "microcosm-logging>=1.3.0",
+        "numpy>=1.16.1",
         "requests>=2.21.0",
     ],
     setup_requires=[],
     entry_points={
         "console_scripts": [
             "extract = discord_activity.extract.main:main",
+            "transform = discord_activity.transform.main:main",
         ],
     },
     tests_require=[

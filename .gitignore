@@ -11,4 +11,6 @@ ansible-shared/
 
 /*.egg-info
 /.eggs
+out/
+discord_activity/scripts
 env
